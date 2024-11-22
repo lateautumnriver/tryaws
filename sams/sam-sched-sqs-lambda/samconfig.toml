@@ -1,0 +1,26 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+
+[dev.deploy.parameters]
+resolve_s3 = true
+s3_prefix = "tryaws/dev/sqs_lambda"
+stack_name = "sam-sched-sqs-lambda-dev"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = [
+    "AppId=sqs_lambda",
+    "AppEnv=dev",
+]

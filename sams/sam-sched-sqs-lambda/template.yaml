@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for sam-sched-sqs-lambda
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 3
+    MemorySize: 128
+
+Parameters:
+  AppId:
+    Type: String
+  AppEnv:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prd
+
+Outputs:
+  HelloWorldFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt HelloWorldFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-lambda-hello-arn"
+
+Resources:
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: !Sub "lambda-policy-${AppId}-${AppEnv}"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+      Tags:
+        - Key: Application
+          Value: !Ref "AWS::StackId"
+        - Key: AppId
+          Value: !Ref AppId
+        - Key: AppEnv
+          Value: !Ref AppEnv
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AppId}-${AppEnv}-hello-world"
+      CodeUri: src/lambda_handlers/hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Role: !GetAtt FunctionRole.Arn
+      Timeout: 10
+      Layers:
+        - !Ref LibLayer
+      Environment:
+        Variables:
+          APP_ID: !Ref AppId
+          APP_ENV: !Ref AppEnv
+      Tags:
+        Application: !Ref "AWS::StackId"
+        AppId: !Ref AppId
+        AppEnv: !Ref AppEnv
+  LibLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: !Sub "Libraries for ${AppId}-${AppEnv}"
+      LayerName: !Sub "${AppId}-${AppEnv}-liblayer"
+      ContentUri: liblayer
+      CompatibleRuntimes:
+        - python3.11
+    Metadata:
+      BuildMethod: python3.11
+  InvokeHelloWorldFifoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: true
+      DelaySeconds: 0
+      FifoQueue: true
+      MessageRetentionPeriod: 60
+      QueueName: !Sub "${AppId}-${AppEnv}-invoke-hello-world.fifo"
+      ReceiveMessageWaitTimeSeconds: 10
+      VisibilityTimeout: 10
+      Tags:
+        - Key: Application
+          Value: !Ref "AWS::StackId"
+        - Key: AppId
+          Value: !Ref AppId
+        - Key: AppEnv
+          Value: !Ref AppEnv
