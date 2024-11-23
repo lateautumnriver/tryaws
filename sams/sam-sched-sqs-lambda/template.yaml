@@ -20,11 +20,41 @@ Parameters:
       - prd
 
 Outputs:
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
+  HelloWorldFunctionArn:
+    Description: "Sample lambda function arn"
     Value: !GetAtt HelloWorldFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-lambda-hello-arn"
+  HelloWorldFunctionName:
+    Description: "Sample lambda function name"
+    Value: !Ref HelloWorldFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-lambda-hello-name"
+  FunctionRoleArn:
+    Description: "Lambda function role arn"
+    Value: !GetAtt FunctionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-role-arn"
+  LibLayerArn:
+    Description: "sam-sched-sqs-lambda liblayer arn"
+    Value: !Ref LibLayer
+    Export:
+      Name: !Sub "${AWS::StackName}-liblayer-arn"
+  InvokeHelloWorldFifoQueueArn:
+    Description: "sam-sched-sqs-lambda fifo queue arn"
+    Value: !GetAtt InvokeHelloWorldFifoQueue.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-queue-arn"
+  InvokeHelloWorldFifoQueueName:
+    Description: "sam-sched-sqs-lambda fifo queue name"
+    Value: !GetAtt InvokeHelloWorldFifoQueue.QueueName
+    Export:
+      Name: !Sub "${AWS::StackName}-queue-name"
+  InvokeHelloWorldFifoQueueUrl:
+    Description: "sam-sched-sqs-lambda fifo queue url"
+    Value: !GetAtt InvokeHelloWorldFifoQueue.QueueUrl
+    Export:
+      Name: !Sub "${AWS::StackName}-queue-url"
 
 Resources:
   FunctionRole:
@@ -75,6 +105,8 @@ Resources:
         Variables:
           APP_ID: !Ref AppId
           APP_ENV: !Ref AppEnv
+      # TODO: Add an event on SQS
+      # Events:
       Tags:
         Application: !Ref "AWS::StackId"
         AppId: !Ref AppId
@@ -106,3 +138,4 @@ Resources:
           Value: !Ref AppId
         - Key: AppEnv
           Value: !Ref AppEnv
+  # TODO: Add Schedule sending a message to InvokeHelloWorldFifoQueue in every minute

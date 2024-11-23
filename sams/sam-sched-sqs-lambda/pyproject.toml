@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+addopts = "-s"
+pythonpath = [
+    "src",
+    "liblayer",
+]
+testpaths = [
+    "tests",
+]
+env = [
+    "AWS_SAM_STACK_NAME=sam-sched-sqs-lambda-dev"
+]
