@@ -1,16 +1,49 @@
 # sam-sched-sqs-lambda
 
 ## TODO: Add summary and description.
-## TODO: Add pyproject.toml.
-## TODO: Arrange tests.
+
+## Prerequisites
+
+* AWS CLI
+* SAM CLI
+
+## Local environment
+
+```shell
+# When using python3.11
+python3.11 -mvenv venv
+
+# Activate venv
+source venv/bin/activate
+
+# Confirm it.
+python -V
+# Python 3.11.10
+```
+
+### Package installation
+
+```shell
+# For src
+pip install -r liblayer/requirements.txt
+
+# For tests
+pip install -r tests/requirements.txt
+```
 
 ## Local tests
 
-TODO: add how to run a local test by using pytest
+```shell
+source venv/bin/activate
+
+# Run all tests
+py -mpytest tests
+```
 
 ## Build
 
 ```shell
+# When using a docker
 sam build --use-container
 ```
 
