@@ -37,7 +37,7 @@ pip install -r tests/requirements.txt
 source venv/bin/activate
 
 # Run all tests
-py -mpytest tests
+python -mpytest tests
 ```
 
 ## Build
