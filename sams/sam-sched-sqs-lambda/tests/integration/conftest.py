@@ -8,6 +8,9 @@ import pytest
 
 
 def get_stack_name() -> str:
+    """
+    Get the name of the stack we are going to test.
+    """
     return os.environ.get("AWS_SAM_STACK_NAME")
 
 
@@ -31,16 +34,38 @@ def get_stack_outputs(stack_name: str) -> dict:
     return stacks[0]["Outputs"]
 
 
+def get_output_value_from_stack(stack_name: str, key_name: str) -> str:
+    """
+    Get the output value from AWS CloudFormation stack
+    """
+    stack_outputs = get_stack_outputs(stack_name)
+    data = [output for output in stack_outputs if output["OutputKey"] == key_name]
+
+    if not data:
+        raise KeyError(f"{key_name} not found in stack {stack_name}")
+
+    return data[0]["OutputValue"]
+
+
 @pytest.fixture()
 def lambda_function_name():
     """
     Get the function name from AWS CloudFormation stack
     """
-    stack_name = get_stack_name()
-    stack_outputs = get_stack_outputs(stack_name)
-    data = [output for output in stack_outputs if output["OutputKey"] == "HelloWorldFunctionName"]
+    return get_output_value_from_stack(get_stack_name(), 'HelloWorldFunctionName')
 
-    if not data:
-        raise KeyError(f"HelloWorldFunctionName not found in stack {stack_name}")
 
-    return data[0]["OutputValue"]
+@pytest.fixture()
+def queue_name():
+    """
+    Get the queue name from AWS CloudFormation stack
+    """
+    return get_output_value_from_stack(get_stack_name(), 'InvokeHelloWorldFifoQueueName')
+
+
+@pytest.fixture()
+def queue_url():
+    """
+    Get the queue url from AWS CloudFormation stack
+    """
+    return get_output_value_from_stack(get_stack_name(), 'InvokeHelloWorldFifoQueueUrl')
