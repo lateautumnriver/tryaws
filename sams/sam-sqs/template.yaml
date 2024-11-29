@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for sam-sqs
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 3
+    MemorySize: 128
+
+Parameters:
+  AppId:
+    Type: String
+  AppEnv:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prd
+
+Outputs:
+  MyFifoQueueArn:
+    # ARN format = arn:aws:sqs:region:account_id:queue_name
+    Description: "sam-sqs fifo queue arn"
+    Value: !GetAtt MyFifoQueue.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-myqueue-arn"
+  MyFifoQueueName:
+    Description: "sam-sqs fifo queue name"
+    Value: !GetAtt MyFifoQueue.QueueName
+    Export:
+      Name: !Sub "${AWS::StackName}-myqueue-name"
+  MyFifoQueueUrl:
+    Description: "sam-sqs fifo queue url"
+    Value: !GetAtt MyFifoQueue.QueueUrl
+    Export:
+      Name: !Sub "${AWS::StackName}-myqueue-url"
+
+Resources:
+  MyFifoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: true
+      DelaySeconds: 0
+      FifoQueue: true
+      MessageRetentionPeriod: 60
+      QueueName: !Sub "${AppId}-${AppEnv}-myqueue.fifo"
+      ReceiveMessageWaitTimeSeconds: 10
+      VisibilityTimeout: 10
+      # To define the number of retries, you must configure the maxReceiveCount value on the source queue’s RedrivePolicy.
+      # For more information, see SetQueueAttributes in the Amazon SQS API Reference.
+      # Also, see Introducing Amazon Simple Queue Service dead-letter queue redrive to source queues  on the AWS Blog.
+      Tags:
+        - Key: Application
+          Value: !Ref "AWS::StackId"
+        - Key: AppId
+          Value: !Ref AppId
+        - Key: AppEnv
+          Value: !Ref AppEnv
+
+  # It may be required, AWS::SQS::QueuePolicy
+  #  MySqsQueuePolicy:
+  #    Type: AWS::SQS::QueuePolicy
+  #    Properties:
+  #      PolicyDocument:
+  #        Id: "TODO: Id?"
+  #        Statement:
+  #          - Sid: !Sub "TODO: sid here."
+  #            Effect: Allow
+  #            Principal: "TODO: principal here."
+  #            Action: "SQS:* TODO: limit actions."
+  #            Resource: !GetAtt MyFifoQueue.Arn
+  #      Queues:
+  #        - !Ref MyFifoQueue
+
+  # TODO: Add Schedule sending a message to MyFifoQueue in every minute
