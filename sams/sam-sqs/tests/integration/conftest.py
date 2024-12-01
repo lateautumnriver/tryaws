@@ -2,6 +2,7 @@
 Make sure env variable AWS_SAM_STACK_NAME exists with the name of the stack we are going to test.
 """
 import os
+import time
 
 import boto3
 import pytest
@@ -48,19 +49,11 @@ def get_output_value_from_stack(stack_name: str, key_name: str) -> str:
 
 
 @pytest.fixture()
-def lambda_function_name():
-    """
-    Get the function name from AWS CloudFormation stack
-    """
-    return get_output_value_from_stack(get_stack_name(), 'HelloWorldFunctionName')
-
-
-@pytest.fixture()
 def queue_name():
     """
     Get the queue name from AWS CloudFormation stack
     """
-    return get_output_value_from_stack(get_stack_name(), 'InvokeHelloWorldFifoQueueName')
+    return get_output_value_from_stack(get_stack_name(), 'MyFifoQueueName')
 
 
 @pytest.fixture()
@@ -68,4 +61,26 @@ def queue_url():
     """
     Get the queue url from AWS CloudFormation stack
     """
-    return get_output_value_from_stack(get_stack_name(), 'InvokeHelloWorldFifoQueueUrl')
+    return get_output_value_from_stack(get_stack_name(), 'MyFifoQueueUrl')
+
+
+def remove_all_messages_in_the_queue():
+    """
+    Remove all messages from the queue
+    """
+    sqs = boto3.resource('sqs')
+    queue_name = get_output_value_from_stack(get_stack_name(), 'MyFifoQueueName')
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+    for message in queue.receive_messages(MaxNumberOfMessages=10, WaitTimeSeconds=10):
+        message.delete()
+
+
+@pytest.fixture(scope='session', autouse=True)
+def fixture_by_session():
+    """
+    Fixture by a session
+    """
+    remove_all_messages_in_the_queue()
+    yield
+    # Since the retention period of the queue is 60, wait for that time for the following tests.
+    time.sleep(60)

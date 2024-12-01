@@ -1,4 +1,4 @@
-# sam-sched-sqs-lambda
+# sam-sqs
 
 ## TODO: Add summary and description.
 
@@ -24,9 +24,6 @@ python -V
 ### Package installation
 
 ```shell
-# For src
-pip install -r liblayer/requirements.txt
-
 # For tests
 pip install -r tests/requirements.txt
 ```
@@ -59,5 +56,5 @@ sam deploy --config-env "${APP_ENV}"
 To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
 
 ```bash
-sam delete --stack-name "sam-sched-sqs-lambda"
+sam delete --stack-name "sam-sqs"
 ```

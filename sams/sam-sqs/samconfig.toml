@@ -16,10 +16,10 @@ resolve_s3 = true
 
 [dev.deploy.parameters]
 resolve_s3 = true
-s3_prefix = "tryaws/dev/sqs_lambda"
-stack_name = "sam-sched-sqs-lambda-dev"
+s3_prefix = "tryaws/dev/sqs"
+stack_name = "sam-sqs-dev"
 capabilities = "CAPABILITY_NAMED_IAM"
 parameter_overrides = [
-    "AppId=sqs_lambda",
+    "AppId=sqs",
     "AppEnv=dev",
 ]

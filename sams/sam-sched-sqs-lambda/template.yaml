@@ -55,11 +55,25 @@ Outputs:
     Value: !GetAtt InvokeHelloWorldFifoQueue.QueueUrl
     Export:
       Name: !Sub "${AWS::StackName}-queue-url"
+  HelloWorldEventSourceMappingId:
+    Description: "sam-sched-sqs-lambda event source mapping id"
+    Value: !Ref HelloWorldEventSourceMapping
+    Export:
+      Name: !Sub "${AWS::StackName}-lambda-event-source-mapping-id"
+  HelloWorldEventSourceMappingArn:
+    Description: "sam-sched-sqs-lambda event source mapping arn"
+    Value: !GetAtt HelloWorldEventSourceMapping.EventSourceMappingArn
+    Export:
+      Name: !Sub "${AWS::StackName}-lambda-event-source-mapping-arn"
 
 Resources:
   FunctionRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub "service-role-${AppId}-${AppEnv}-lambda"
+      Description: "A service role for a lambda function"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -70,17 +84,17 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Path: /
-      Policies:
-        - PolicyName: !Sub "lambda-policy-${AppId}-${AppEnv}"
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: 'arn:aws:logs:*:*:*'
+      #      Policies:
+      #        - PolicyName: !Sub "lambda-policy-${AppId}-${AppEnv}"
+      #          PolicyDocument:
+      #            Version: "2012-10-17"
+      #            Statement:
+      #              - Effect: Allow
+      #                Action:
+      #                  - 'logs:CreateLogGroup'
+      #                  - 'logs:CreateLogStream'
+      #                  - 'logs:PutLogEvents'
+      #                Resource: 'arn:aws:logs:*:*:*'
       Tags:
         - Key: Application
           Value: !Ref "AWS::StackId"
@@ -88,6 +102,16 @@ Resources:
           Value: !Ref AppId
         - Key: AppEnv
           Value: !Ref AppEnv
+  LibLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: !Sub "Libraries for ${AppId}-${AppEnv}"
+      LayerName: !Sub "${AppId}-${AppEnv}-liblayer"
+      ContentUri: liblayer
+      CompatibleRuntimes:
+        - python3.11
+    Metadata:
+      BuildMethod: python3.11
   HelloWorldFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -105,22 +129,10 @@ Resources:
         Variables:
           APP_ID: !Ref AppId
           APP_ENV: !Ref AppEnv
-      # TODO: Add an event on SQS
-      # Events:
       Tags:
         Application: !Ref "AWS::StackId"
         AppId: !Ref AppId
         AppEnv: !Ref AppEnv
-  LibLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      Description: !Sub "Libraries for ${AppId}-${AppEnv}"
-      LayerName: !Sub "${AppId}-${AppEnv}-liblayer"
-      ContentUri: liblayer
-      CompatibleRuntimes:
-        - python3.11
-    Metadata:
-      BuildMethod: python3.11
   InvokeHelloWorldFifoQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -131,6 +143,9 @@ Resources:
       QueueName: !Sub "${AppId}-${AppEnv}-invoke-hello-world.fifo"
       ReceiveMessageWaitTimeSeconds: 10
       VisibilityTimeout: 10
+      # To define the number of retries, you must configure the maxReceiveCount value on the source queue’s RedrivePolicy.
+      # For more information, see SetQueueAttributes in the Amazon SQS API Reference.
+      # Also, see Introducing Amazon Simple Queue Service dead-letter queue redrive to source queues  on the AWS Blog.
       Tags:
         - Key: Application
           Value: !Ref "AWS::StackId"
@@ -138,4 +153,58 @@ Resources:
           Value: !Ref AppId
         - Key: AppEnv
           Value: !Ref AppEnv
+  HelloWorldResourceBasedPermission:
+    # TODO: Is this resource unnecessary? Check it out.
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HelloWorldFunction
+      Action: lambda:InvokeFunction
+      Principal: sqs.amazonaws.com
+      SourceArn: !GetAtt InvokeHelloWorldFifoQueue.Arn
+  HelloWorldEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt InvokeHelloWorldFifoQueue.Arn
+      FunctionName: !Ref HelloWorldFunction
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+      ScalingConfig:
+        # MaximumConcurrency must be less than or equal to the function's reserved concurrency.
+        # See https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html
+        MaximumConcurrency: 100
+      Tags:
+        - Key: Application
+          Value: !Ref "AWS::StackId"
+        - Key: AppId
+          Value: !Ref AppId
+        - Key: AppEnv
+          Value: !Ref AppEnv
+  #      FilterCriteria:
+  #        # Event filtering: https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-event-filtering-amazon-sqs-dynamodb-kinesis-sources/
+  #        # The filters are combined using OR logic by default.
+  #        # In other words, an event/payload meeting any of the filtering criteria defined will be passed on to trigger a Lambda function while an event/payload not matching any of the filtering criteria will be dropped.
+  #        #
+  #        # Event filtering rule syntax: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventfiltering.html#filtering-syntax
+  #        # Especially SQS: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventfiltering.html#filtering-sqs
+  #        Filters:
+  #          - Pattern: '{"foo": "bar", "desc":"Pattern must be a JSON string."}'
+  #
+
+  # It may be required, AWS::SQS::QueuePolicy
+  #  MySqsQueuePolicy:
+  #    Type: AWS::SQS::QueuePolicy
+  #    Properties:
+  #      PolicyDocument:
+  #        Id: "TODO: Id?"
+  #        Statement:
+  #          - Sid: !Sub "TODO: sid here."
+  #            Effect: Allow
+  #            Principal: "TODO: principal here."
+  #            Action: "SQS:* TODO: limit actions."
+  #            Resource: !GetAtt InvokeHelloWorldFifoQueue.Arn
+  #      Queues:
+  #        - !Ref InvokeHelloWorldFifoQueue
+
   # TODO: Add Schedule sending a message to InvokeHelloWorldFifoQueue in every minute
